@@ -41,16 +41,23 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim8;
 DMA_HandleTypeDef hdma_tim2_ch1;
 DMA_HandleTypeDef hdma_tim2_ch2;
+DMA_HandleTypeDef hdma_tim3_ch1;
+DMA_HandleTypeDef hdma_tim3_ch2;
+DMA_HandleTypeDef hdma_tim8_ch1;
+DMA_HandleTypeDef hdma_tim8_ch2;
 
 /* USER CODE BEGIN PV */
 /**************** PWM INPUT **************/
 
 /* define the capturing TIMER's CLOCK and the Prescalar you are using */
 #define TIMCLOCK 170000000
-#define PSCALAR 0
-
+#define PSCALARAMP 0
+#define PSCALARMEAN 170
+#define PSCALARAZIMUTH 170
 /* Define the number of samples to be taken by the DMA
    For lower Frequencies, keep the less number for samples
 */
@@ -58,150 +65,58 @@ DMA_HandleTypeDef hdma_tim2_ch2;
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-int riseCaptured = 0;
-int fallCaptured = 0;
+int riseMEANCaptured = 0, riseAMPCaptured = 0, riseAZIMUTHCaptured = 0;
+int fallMEANCaptured = 0, fallAMPCaptured = 0, fallAZIMUTHCaptured = 0;
+float frequencyMEAN = 0, frequencyAMP = 0, frequencyAZIMUTH = 0;
+float widthMEAN = 0, widthAMP = 0, widthAZIMUTH = 0;
+uint32_t riseDataAMP[PWMNUMVAL], fallDataAMP[PWMNUMVAL];;
+uint16_t riseDataMEAN[PWMNUMVAL], riseDataAZIMUTH[PWMNUMVAL];
+uint16_t fallDataMEAN[PWMNUMVAL], fallDataAZIMUTH[PWMNUMVAL];
+int isMeasuredAMP = 0, isMeasuredMEAN = 0, isMeasuredAZIMUTH = 0;
 
-uint32_t riseData[numval] = {0};
-uint32_t fallData[numval] = {0};
-
-float frequency = 0;
-float width = 0;
-
-int isMeasured = 0;
+void TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim, const int pscalar, int *riseCaptured, int *fallCaptured, int *isMeasured,
+                            uint32_t *riseData, uint32_t *fallData, float *frequency, float *width);
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
-  // If the Interrupt is triggered by 1st Channel
-  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+  if (htim->Instance == TIM2)
   {
-    riseCaptured = 1;
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    {
+      riseAMPCaptured = 1;
+    }
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
+    {
+      fallAMPCaptured = 1;
+    }
+    TIM_IC_CaptureCallback(htim, PSCALARAMP, &riseAMPCaptured, &fallAMPCaptured, &isMeasuredAMP,
+                           riseDataAMP, fallDataAMP, &frequencyAMP, &widthAMP);
   }
-
-  // If the Interrupt is triggered by 2nd Channel
-  if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
+  if (htim->Instance == TIM8)
   {
-    fallCaptured = 1;
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+    {
+      riseMEANCaptured = 1;
+    }
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
+    {
+      fallMEANCaptured = 1;
+    }
+    TIM_IC_CaptureCallback(htim, PSCALARMEAN, &riseMEANCaptured, &fallMEANCaptured, &isMeasuredMEAN,
+                           riseDataMEAN, fallDataMEAN, &frequencyMEAN, &widthMEAN);
   }
-
-  /* Rest of the calculations will be done,
-   * once both the DMAs have finished capturing enough data */
-  if ((riseCaptured) && (fallCaptured))
+  if (htim->Instance == TIM3)
   {
-
-    // calculate the reference clock
-    float refClock = TIMCLOCK / (PSCALAR + 1);
-
-    int indxr = 0;
-    int indxf = 0;
-
-    int countr = 0;
-    int countrf = 0;
-
-    float riseavg = 0;
-    float rfavg = 0;
-
-    /* In case of high Frequencies, the DMA sometimes captures 0's in the beginning.
-     * increment the index until some useful data shows up
-     */
-    while (riseData[indxr] == 0)
-      indxr++;
-
-    /* Again at very high frequencies, sometimes the values don't change
-     * So we will wait for the update among the values
-     */
-    while ((MIN((riseData[indxr + 1] - riseData[indxr]), (riseData[indxr + 2] - riseData[indxr + 1]))) == 0)
-      indxr++;
-
-    /* riseavg is the difference in the 2 consecutive rise Time */
-
-    /* Assign a start value to riseavg */
-    riseavg += MIN((riseData[indxr + 1] - riseData[indxr]), (riseData[indxr + 2] - riseData[indxr + 1]));
-    indxr++;
-    countr++;
-
-    /* start adding the values to the riseavg */
-    while (indxr < (numval))
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
     {
-      riseavg += MIN((riseData[indxr + 1] - riseData[indxr]), riseavg / countr);
-      countr++;
-      indxr++;
+      riseAZIMUTHCaptured = 1;
     }
-
-    /* Find the average riseavg, the average time between 2 RISE */
-    riseavg = riseavg / countr;
-
-    indxr = 0;
-
-    /* The calculation for the Falling pulse on second channel */
-
-    /* If the fall time is lower than rise time,
-     * Then there must be some error and we will increment
-     * both, until the error is gone
-     */
-    if (fallData[indxf] < riseData[indxr])
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
     {
-      indxf += 2;
-      indxr += 2;
-      while (fallData[indxf] < riseData[indxr])
-        indxf++;
+      fallAZIMUTHCaptured = 1;
     }
-
-    else if (fallData[indxf] > riseData[indxr])
-    {
-      indxf += 2;
-      indxr += 2;
-      while (fallData[indxf] > riseData[indxr + 1])
-        indxr++;
-    }
-
-    /* The method used for the calculation below is as follows:
-     * If Fall time < Rise Time, increment Fall counter
-     * If Fall time - Rise Time is in between 0 and (difference between 2 Rise times), then its a success
-     * If fall time > Rise time, but is also > (difference between 2 Rise times), then increment Rise Counter
-     */
-    while ((indxf < (numval)) && (indxr < (numval)))
-    {
-      /* If the Fall time is lower than rise time, increment the fall indx */
-      while ((int16_t)(fallData[indxf] - riseData[indxr]) < 0)
-      {
-        indxf++;
-      }
-
-      /* If the Difference in fall time and rise time is >0 and less than rise average,
-       * Then we will register it as a success and increment the countrf (the number of successes)
-       */
-      if (((int16_t)(fallData[indxf] - riseData[indxr]) >= 0) && (((int16_t)(fallData[indxf] - riseData[indxr]) <= riseavg)))
-      {
-        rfavg += MIN((fallData[indxf] - riseData[indxr]), (fallData[indxf + 1] - riseData[indxr + 1]));
-        indxf++;
-        indxr++;
-        countrf++;
-      }
-
-      else
-      {
-        indxr++;
-      }
-    }
-
-    /* Calculate the Average time between 2 Rise */
-    rfavg = rfavg / countrf;
-
-    /* Calculate Frequency
-     * Freq = Clock/(time taken between 2 Rise)
-     */
-    frequency = (refClock / (float)riseavg);
-    ;
-
-    /* Width of the pulse
-     *  = (Time between Rise and fall) / clock
-     */
-    width = ((rfavg) / ((float)(refClock / 1000000))) * 1000; // width in ns
-
-    riseCaptured = 0;
-    fallCaptured = 0;
-
-    isMeasured = 1;
+    TIM_IC_CaptureCallback(htim, PSCALARAZIMUTH, &riseAZIMUTHCaptured, &fallAZIMUTHCaptured, &isMeasuredAZIMUTH,
+                           riseDataAZIMUTH, fallDataAZIMUTH, &frequencyAZIMUTH, &widthAZIMUTH);
   }
 }
 
@@ -212,6 +127,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM8_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -251,15 +168,26 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_TIM2_Init();
+  MX_TIM8_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   /* The PWM Output from Timer 1 */
 
   /* TIM2 Channel 1 is set to rising edge, so it will store the data in 'riseData' */
-  HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, riseData, numval);
-
+  HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, riseDataAMP, numval);
   /* TIM2 Channel 2 is set to falling edge, so it will store the data in 'fallData' */
-  HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_2, fallData, numval);
+  HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_2, fallDataAMP, numval);
+
+  /* TIM8 Channel 1 is set to rising edge, so it will store the data in 'riseData' */
+  HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_1, riseDataMEAN, numval);
+  /* TIM8 Channel 2 is set to falling edge, so it will store the data in 'fallData' */
+  HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_2, fallDataMEAN, numval);
+
+  /* TIM8 Channel 1 is set to rising edge, so it will store the data in 'riseData' */
+  HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_1, riseDataAZIMUTH, numval);
+  /* TIM8 Channel 2 is set to falling edge, so it will store the data in 'fallData' */
+  HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_2, fallDataAZIMUTH, numval);
 
   /* USER CODE END 2 */
 
@@ -273,16 +201,27 @@ int main(void)
     /* USER CODE BEGIN 3 */
 
     /* Call the measurement whenever needed */
-      HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, riseData, numval);
-
-      HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_2, fallData, numval);
-     HAL_Delay(1000);
-   if (isMeasured)
+    HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, riseDataAMP, numval);
+    HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_2, fallDataAMP, numval);
+    HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_1, riseDataMEAN, numval);
+    HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_2, fallDataMEAN, numval);
+    HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_1, riseDataAZIMUTH, numval);
+    HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_2, fallDataAZIMUTH, numval);
+    HAL_Delay(1000);
+    if (isMeasuredAMP)
     {
       TIM2->CNT = 0;
-
-
-      isMeasured = 0;
+      isMeasuredAMP = 0;
+    }
+    if (isMeasuredMEAN)
+    {
+      TIM8->CNT = 0;
+      isMeasuredMEAN = 0;
+    }
+    if (isMeasuredAZIMUTH)
+    {
+      TIM3->CNT = 0;
+      isMeasuredAZIMUTH = 0;
     }
   }
 
@@ -399,6 +338,136 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 170-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
+  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 170-1;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 65535;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
+  if (HAL_TIM_IC_ConfigChannel(&htim8, &sConfigIC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -415,6 +484,18 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+  /* DMA1_Channel4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
+  /* DMA1_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
 
 }
 
@@ -439,6 +520,128 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim, const int pscalar, int *riseCaptured, int *fallCaptured, int *isMeasured,
+                            uint32_t *riseData, uint32_t *fallData, float *frequency, float *width)
+{
+  /* Rest of the calculations will be done,
+   * once both the DMAs have finished capturing enough data */
+  if (!((*riseCaptured) && (*fallCaptured)))
+    return;
+
+  // calculate the reference clock
+  float refClock = TIMCLOCK / (pscalar + 1);
+
+  int indxr = 0;
+  int indxf = 0;
+
+  int countr = 0;
+  int countrf = 0;
+
+  float riseavg = 0;
+  float rfavg = 0;
+
+  /* In case of high Frequencies, the DMA sometimes captures 0's in the beginning.
+   * increment the index until some useful data shows up
+   */
+  while (riseData[indxr] == 0)
+    indxr++;
+
+  /* Again at very high frequencies, sometimes the values don't change
+   * So we will wait for the update among the values
+   */
+  while ((MIN((riseData[indxr + 1] - riseData[indxr]), (riseData[indxr + 2] - riseData[indxr + 1]))) == 0)
+    indxr++;
+
+  /* riseavg is the difference in the 2 consecutive rise Time */
+
+  /* Assign a start value to riseavg */
+  riseavg += MIN((riseData[indxr + 1] - riseData[indxr]), (riseData[indxr + 2] - riseData[indxr + 1]));
+  indxr++;
+  countr++;
+
+  /* start adding the values to the riseavg */
+  while (indxr < (numval))
+  {
+    riseavg += MIN((riseData[indxr + 1] - riseData[indxr]), riseavg / countr);
+    countr++;
+    indxr++;
+  }
+
+  /* Find the average riseavg, the average time between 2 RISE */
+  riseavg = riseavg / countr;
+
+  indxr = 0;
+
+  /* The calculation for the Falling pulse on second channel */
+
+  /* If the fall time is lower than rise time,
+   * Then there must be some error and we will increment
+   * both, until the error is gone
+   */
+  if (fallData[indxf] < riseData[indxr])
+  {
+    indxf += 2;
+    indxr += 2;
+    while (fallData[indxf] < riseData[indxr])
+      indxf++;
+  }
+
+  else if (fallData[indxf] > riseData[indxr])
+  {
+    indxf += 2;
+    indxr += 2;
+    while (fallData[indxf] > riseData[indxr + 1])
+      indxr++;
+  }
+
+  /* The method used for the calculation below is as follows:
+   * If Fall time < Rise Time, increment Fall counter
+   * If Fall time - Rise Time is in between 0 and (difference between 2 Rise times), then its a success
+   * If fall time > Rise time, but is also > (difference between 2 Rise times), then increment Rise Counter
+   */
+  while ((indxf < (numval)) && (indxr < (numval)))
+  {
+    /* If the Fall time is lower than rise time, increment the fall indx */
+    while ((int16_t)(fallData[indxf] - riseData[indxr]) < 0)
+    {
+      indxf++;
+    }
+
+    /* If the Difference in fall time and rise time is >0 and less than rise average,
+     * Then we will register it as a success and increment the countrf (the number of successes)
+     */
+    if (((int16_t)(fallData[indxf] - riseData[indxr]) >= 0) && (((int16_t)(fallData[indxf] - riseData[indxr]) <= riseavg)))
+    {
+      rfavg += MIN((fallData[indxf] - riseData[indxr]), (fallData[indxf + 1] - riseData[indxr + 1]));
+      indxf++;
+      indxr++;
+      countrf++;
+    }
+
+    else
+    {
+      indxr++;
+    }
+  }
+
+  /* Calculate the Average time between 2 Rise */
+  rfavg = rfavg / countrf;
+
+  /* Calculate Frequency
+   * Freq = Clock/(time taken between 2 Rise)
+   */
+  *frequency = (refClock / (float)riseavg);
+
+  /* Width of the pulse
+   *  = (Time between Rise and fall) / clock
+   */
+  *width = ((rfavg) / ((float)(refClock / 1000000))) * 1000; // width in ns
+
+  *riseCaptured = 0;
+  *fallCaptured = 0;
+
+  *isMeasured = 1;
+}
 /* USER CODE END 4 */
 
 /**
