@@ -28,10 +28,6 @@ extern DMA_HandleTypeDef hdma_tim2_ch1;
 
 extern DMA_HandleTypeDef hdma_tim2_ch2;
 
-extern DMA_HandleTypeDef hdma_tim3_ch1;
-
-extern DMA_HandleTypeDef hdma_tim3_ch2;
-
 extern DMA_HandleTypeDef hdma_tim8_ch1;
 
 extern DMA_HandleTypeDef hdma_tim8_ch2;
@@ -172,49 +168,14 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**TIM3 GPIO Configuration
-    PB4     ------> TIM3_CH1
+    PB1     ------> TIM3_CH4
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_4;
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM3;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    /* TIM3 DMA Init */
-    /* TIM3_CH1 Init */
-    hdma_tim3_ch1.Instance = DMA1_Channel5;
-    hdma_tim3_ch1.Init.Request = DMA_REQUEST_TIM3_CH1;
-    hdma_tim3_ch1.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_tim3_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_tim3_ch1.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_tim3_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_tim3_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_tim3_ch1.Init.Mode = DMA_NORMAL;
-    hdma_tim3_ch1.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_tim3_ch1) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(htim_base,hdma[TIM_DMA_ID_CC1],hdma_tim3_ch1);
-
-    /* TIM3_CH2 Init */
-    hdma_tim3_ch2.Instance = DMA1_Channel6;
-    hdma_tim3_ch2.Init.Request = DMA_REQUEST_TIM3_CH2;
-    hdma_tim3_ch2.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_tim3_ch2.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_tim3_ch2.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_tim3_ch2.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_tim3_ch2.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_tim3_ch2.Init.Mode = DMA_NORMAL;
-    hdma_tim3_ch2.Init.Priority = DMA_PRIORITY_LOW;
-    if (HAL_DMA_Init(&hdma_tim3_ch2) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(htim_base,hdma[TIM_DMA_ID_CC2],hdma_tim3_ch2);
 
     /* TIM3 interrupt Init */
     HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
@@ -327,13 +288,9 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     __HAL_RCC_TIM3_CLK_DISABLE();
 
     /**TIM3 GPIO Configuration
-    PB4     ------> TIM3_CH1
+    PB1     ------> TIM3_CH4
     */
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_4);
-
-    /* TIM3 DMA DeInit */
-    HAL_DMA_DeInit(htim_base->hdma[TIM_DMA_ID_CC1]);
-    HAL_DMA_DeInit(htim_base->hdma[TIM_DMA_ID_CC2]);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_1);
 
     /* TIM3 interrupt DeInit */
     HAL_NVIC_DisableIRQ(TIM3_IRQn);

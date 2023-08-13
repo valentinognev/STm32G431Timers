@@ -16,7 +16,7 @@
   *
   ******************************************************************************
   */
-#define PWMNUMVAL 500
+#define PWMNUMVAL 100
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
