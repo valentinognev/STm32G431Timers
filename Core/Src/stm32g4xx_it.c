@@ -58,6 +58,8 @@
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_tim2_ch1;
 extern DMA_HandleTypeDef hdma_tim2_ch2;
+extern DMA_HandleTypeDef hdma_tim3_ch3;
+extern DMA_HandleTypeDef hdma_tim3_ch4;
 extern DMA_HandleTypeDef hdma_tim8_ch1;
 extern DMA_HandleTypeDef hdma_tim8_ch2;
 extern TIM_HandleTypeDef htim2;
@@ -225,22 +227,7 @@ void DMA1_Channel1_IRQHandler(void)
 void DMA1_Channel2_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel2_IRQn 0 */
-  // if (LL_DMA_IsActiveFlag_TC1(DMA1) == 1)
-  // {
-  //   LL_DMA_ClearFlag_TC1(DMA1);
-  // }
-  // else if (LL_DMA_IsActiveFlag_TE1(DMA1) == 1)
-  // {
-  //   LL_DMA_ClearFlag_TE1(DMA1);
-  // }
-  // else if (LL_DMA_IsActiveFlag_HT1(DMA1) == 1)
-  // {
-  //   LL_DMA_ClearFlag_HT1(DMA1);
-  // }
-  // else if (LL_DMA_IsActiveFlag_GI1(DMA1) == 1)
-  // {
-  //   LL_DMA_ClearFlag_GI1(DMA1);
-  // }
+
   /* USER CODE END DMA1_Channel2_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_tim2_ch2);
   /* USER CODE BEGIN DMA1_Channel2_IRQn 1 */
@@ -274,6 +261,34 @@ void DMA1_Channel4_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel4_IRQn 1 */
 
   /* USER CODE END DMA1_Channel4_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 channel5 global interrupt.
+  */
+void DMA1_Channel5_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel5_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_tim3_ch3);
+  /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 channel6 global interrupt.
+  */
+void DMA1_Channel6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_tim3_ch4);
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 1 */
 }
 
 /**

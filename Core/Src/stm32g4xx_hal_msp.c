@@ -28,6 +28,10 @@ extern DMA_HandleTypeDef hdma_tim2_ch1;
 
 extern DMA_HandleTypeDef hdma_tim2_ch2;
 
+extern DMA_HandleTypeDef hdma_tim3_ch3;
+
+extern DMA_HandleTypeDef hdma_tim3_ch4;
+
 extern DMA_HandleTypeDef hdma_tim8_ch1;
 
 extern DMA_HandleTypeDef hdma_tim8_ch2;
@@ -177,6 +181,41 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     GPIO_InitStruct.Alternate = GPIO_AF2_TIM3;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+    /* TIM3 DMA Init */
+    /* TIM3_CH3 Init */
+    hdma_tim3_ch3.Instance = DMA1_Channel5;
+    hdma_tim3_ch3.Init.Request = DMA_REQUEST_TIM3_CH3;
+    hdma_tim3_ch3.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_tim3_ch3.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_tim3_ch3.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_tim3_ch3.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_tim3_ch3.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    hdma_tim3_ch3.Init.Mode = DMA_NORMAL;
+    hdma_tim3_ch3.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_tim3_ch3) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(htim_base,hdma[TIM_DMA_ID_CC3],hdma_tim3_ch3);
+
+    /* TIM3_CH4 Init */
+    hdma_tim3_ch4.Instance = DMA1_Channel6;
+    hdma_tim3_ch4.Init.Request = DMA_REQUEST_TIM3_CH4;
+    hdma_tim3_ch4.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_tim3_ch4.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_tim3_ch4.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_tim3_ch4.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_tim3_ch4.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    hdma_tim3_ch4.Init.Mode = DMA_NORMAL;
+    hdma_tim3_ch4.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_tim3_ch4) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(htim_base,hdma[TIM_DMA_ID_CC4],hdma_tim3_ch4);
+
     /* TIM3 interrupt Init */
     HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(TIM3_IRQn);
@@ -291,6 +330,10 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     PB1     ------> TIM3_CH4
     */
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_1);
+
+    /* TIM3 DMA DeInit */
+    HAL_DMA_DeInit(htim_base->hdma[TIM_DMA_ID_CC3]);
+    HAL_DMA_DeInit(htim_base->hdma[TIM_DMA_ID_CC4]);
 
     /* TIM3 interrupt DeInit */
     HAL_NVIC_DisableIRQ(TIM3_IRQn);
