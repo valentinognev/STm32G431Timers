@@ -57,20 +57,18 @@ DMA_HandleTypeDef hdma_tim8_ch2;
 #define TIMCLOCK 170000000
 #define PSCALARAMP 16
 #define PSCALARMEAN 29
-#define PSCALARAZIMUTH 29
 /* Define the number of samples to be taken by the DMA
    For lower Frequencies, keep the less number for samples
 */
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-int riseMEANCaptured = 0, riseAMPCaptured = 0, riseAZIMUTHCaptured = 0;
-int fallMEANCaptured = 0, fallAMPCaptured = 0, fallAZIMUTHCaptured = 0;
-float frequencyMEAN = 0, frequencyAMP = 0, frequencyAZIMUTH = 0;
-float widthMEAN = 0, widthAMP = 0, widthAZIMUTH = 0;
+int riseMEANCaptured = 0, riseAMPCaptured = 0;
+int fallMEANCaptured = 0, fallAMPCaptured = 0;
+float frequencyMEAN = 0, frequencyAMP = 0;
+float widthMEAN = 0, widthAMP = 0;
 uint32_t riseDataAMP[PWMNUMVAL], fallDataAMP[PWMNUMVAL];
 uint32_t riseDatatemp[PWMNUMVAL], fallDatatemp[PWMNUMVAL];
-uint16_t riseDataMEAN[PWMNUMVAL], riseDataAZIMUTH[PWMNUMVAL];
-uint16_t fallDataMEAN[PWMNUMVAL], fallDataAZIMUTH[PWMNUMVAL];
+uint16_t riseDataMEAN[PWMNUMVAL], fallDataMEAN[PWMNUMVAL];
 int isMeasuredAMP = 0, isMeasuredMEAN = 0, isMeasuredAZIMUTH = 0;
 
 void TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim, const int pscalar, int *riseCaptured, int *fallCaptured, int *isMeasured,
@@ -109,24 +107,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     TIM_IC_CaptureCallback(htim, PSCALARMEAN, &riseMEANCaptured, &fallMEANCaptured, &isMeasuredMEAN,
                            riseDatatemp, fallDatatemp, &frequencyMEAN, &widthMEAN);
   }
-  if (htim->Instance == TIM3)
-  {
-    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3)
-    {
-      riseAZIMUTHCaptured = 1;
-    }
-    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4)
-    {
-      fallAZIMUTHCaptured = 1;
-    }
-    for (int i=0;i<PWMNUMVAL;i++)
-    {
-      riseDatatemp[i]=riseDataAZIMUTH[i];
-      fallDatatemp[i]=fallDataAZIMUTH[i];
-    }  
-    TIM_IC_CaptureCallback(htim, PSCALARAZIMUTH, &riseAZIMUTHCaptured, &fallAZIMUTHCaptured, &isMeasuredAZIMUTH,
-                           riseDatatemp, fallDatatemp, &frequencyAZIMUTH, &widthAZIMUTH);
-  }
 }
 
 /* USER CODE END PV */
@@ -137,7 +117,6 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM8_Init(void);
-static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -178,7 +157,6 @@ int main(void)
   MX_DMA_Init();
   MX_TIM2_Init();
   MX_TIM8_Init();
-  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   /* The PWM Output from Timer 1 */
@@ -192,12 +170,6 @@ int main(void)
   HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_1, riseDataMEAN, PWMNUMVAL);
   /* TIM8 Channel 2 is set to falling edge, so it will store the data in 'fallData' */
   HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_2, fallDataMEAN, PWMNUMVAL);
-
-  /* TIM8 Channel 1 is set to rising edge, so it will store the data in 'riseData' */
-  HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_3, riseDataAZIMUTH, PWMNUMVAL);
-  /* TIM8 Channel 2 is set to falling edge, so it will store the data in 'fallData' */
-  HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_4, fallDataAZIMUTH, PWMNUMVAL);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -214,8 +186,6 @@ int main(void)
     HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_2, fallDataAMP, PWMNUMVAL);
     HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_1, riseDataMEAN, PWMNUMVAL);
     HAL_TIM_IC_Start_DMA(&htim8, TIM_CHANNEL_2, fallDataMEAN, PWMNUMVAL);
-    HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_3, riseDataAZIMUTH, PWMNUMVAL);
-    HAL_TIM_IC_Start_DMA(&htim3, TIM_CHANNEL_4, fallDataAZIMUTH, PWMNUMVAL);
     HAL_Delay(1000);
     if (isMeasuredAMP)
     {
@@ -226,11 +196,6 @@ int main(void)
     {
       TIM8->CNT = 0;
       isMeasuredMEAN = 0;
-    }
-    if (isMeasuredAZIMUTH)
-    {
-      TIM3->CNT = 0;
-      isMeasuredAZIMUTH = 0;
     }
   }
 
@@ -346,68 +311,7 @@ static void MX_TIM2_Init(void)
 
 }
 
-/**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
 
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_IC_InitTypeDef sConfigIC = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 30-1;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_IC_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
-  sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
-  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 0;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
-  if (HAL_TIM_IC_ConfigChannel(&htim3, &sConfigIC, TIM_CHANNEL_4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
-
-}
 
 /**
   * @brief TIM8 Initialization Function
@@ -498,13 +402,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-  /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-
 }
 
 /**
